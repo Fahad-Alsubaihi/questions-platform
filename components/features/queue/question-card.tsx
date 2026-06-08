@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Check, X, Pencil, ExternalLink, ChevronDown, ChevronUp } from "lucide-react";
+import { Check, X, Pencil, ExternalLink, ChevronDown, ChevronUp, Plus, Trash2 } from "lucide-react";
 import { questionSchema } from "@/lib/validations/question";
 import { z } from "zod";
 import { formatDate, cn } from "@/lib/utils";
@@ -33,6 +33,9 @@ const typeAr: Record<string, string> = {
   "Short Answer": "إجابة قصيرة",
 };
 
+const inputCls = "w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring";
+const labelCls = "text-xs font-medium text-muted-foreground";
+
 export function QuestionCard({
   question,
   onApprove,
@@ -46,13 +49,15 @@ export function QuestionCard({
   const {
     register,
     handleSubmit,
+    watch,
+    control,
     formState: { errors },
   } = useForm<QuestionFormValues>({
     resolver: zodResolver(questionSchema),
     defaultValues: {
       question: question.question,
       type: question.type,
-      options: (question.options as string[]) ?? [],
+      options: (question.options as string[])?.length ? (question.options as string[]) : ["", "", "", ""],
       correctAnswer: question.correctAnswer,
       hint: question.hint,
       explanation: question.explanation,
@@ -63,8 +68,16 @@ export function QuestionCard({
     },
   });
 
+  const { fields, append, remove } = useFieldArray({ control, name: "options" as never });
+  const watchedType = watch("type");
+  const watchedOptions = watch("options");
+
   function onEditSubmit(data: QuestionFormValues) {
-    onEdit(data);
+    const cleaned = {
+      ...data,
+      options: watchedType === "MCQ" ? data.options?.filter((o) => o.trim() !== "") : [],
+    };
+    onEdit(cleaned);
     setIsEditing(false);
   }
 
@@ -77,25 +90,32 @@ export function QuestionCard({
             <X className="h-4 w-4" />
           </button>
         </div>
+
         <form onSubmit={handleSubmit(onEditSubmit)} className="p-4 space-y-4">
+          {/* Question text */}
           <div className="space-y-1">
-            <label className="text-sm font-medium text-foreground">نص السؤال</label>
+            <label className={labelCls}>نص السؤال</label>
             <textarea
               {...register("question")}
               rows={3}
-              className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring resize-none"
+              className={cn(inputCls, "resize-none")}
             />
             {errors.question && <p className="text-xs text-destructive">{errors.question.message}</p>}
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          {/* Type + Difficulty */}
+          <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
-              <label className="text-sm font-medium text-foreground">الإجابة الصحيحة</label>
-              <input {...register("correctAnswer")} className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+              <label className={labelCls}>نوع السؤال</label>
+              <select {...register("type")} className={inputCls}>
+                <option value="MCQ">اختيار متعدد</option>
+                <option value="True-False">صح / خطأ</option>
+                <option value="Short Answer">إجابة قصيرة</option>
+              </select>
             </div>
             <div className="space-y-1">
-              <label className="text-sm font-medium text-foreground">الصعوبة</label>
-              <select {...register("difficulty")} className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring">
+              <label className={labelCls}>الصعوبة</label>
+              <select {...register("difficulty")} className={inputCls}>
                 <option value="Easy">سهل</option>
                 <option value="Medium">متوسط</option>
                 <option value="Hard">صعب</option>
@@ -103,26 +123,115 @@ export function QuestionCard({
             </div>
           </div>
 
+          {/* MCQ Options */}
+          {watchedType === "MCQ" && (
+            <div className="space-y-2">
+              <label className={labelCls}>الخيارات</label>
+              <div className="space-y-2">
+                {fields.map((field, i) => (
+                  <div key={field.id} className="flex items-center gap-2">
+                    <span className="text-xs font-mono text-muted-foreground w-5 shrink-0">
+                      {String.fromCharCode(65 + i)}.
+                    </span>
+                    <input
+                      {...register(`options.${i}` as const)}
+                      placeholder={`الخيار ${String.fromCharCode(65 + i)}`}
+                      className={cn(inputCls, "flex-1")}
+                    />
+                    {fields.length > 2 && (
+                      <button
+                        type="button"
+                        onClick={() => remove(i)}
+                        className="text-muted-foreground hover:text-destructive transition-colors shrink-0"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+              {fields.length < 6 && (
+                <button
+                  type="button"
+                  onClick={() => append("")}
+                  className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  إضافة خيار
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* Correct Answer */}
           <div className="space-y-1">
-            <label className="text-sm font-medium text-foreground">الشرح</label>
-            <textarea {...register("explanation")} rows={2} className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring resize-none" />
+            <label className={labelCls}>الإجابة الصحيحة</label>
+            {watchedType === "MCQ" ? (
+              <select {...register("correctAnswer")} className={inputCls}>
+                <option value="">— اختر —</option>
+                {(watchedOptions ?? [])
+                  .filter((o) => o?.trim())
+                  .map((opt, i) => (
+                    <option key={i} value={opt}>
+                      {String.fromCharCode(65 + i)}. {opt}
+                    </option>
+                  ))}
+              </select>
+            ) : watchedType === "True-False" ? (
+              <select {...register("correctAnswer")} className={inputCls}>
+                <option value="صحيح">صحيح</option>
+                <option value="خطأ">خطأ</option>
+              </select>
+            ) : (
+              <input {...register("correctAnswer")} className={inputCls} />
+            )}
+            {errors.correctAnswer && <p className="text-xs text-destructive">{errors.correctAnswer.message}</p>}
           </div>
 
-          <div className="space-y-1">
-            <label className="text-sm font-medium text-foreground">التلميح</label>
-            <input {...register("hint")} className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+          {/* Domain + Subdomain */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <label className={labelCls}>المجال</label>
+              <input {...register("domain")} className={inputCls} />
+            </div>
+            <div className="space-y-1">
+              <label className={labelCls}>المجال الفرعي</label>
+              <input {...register("subdomain")} className={inputCls} />
+            </div>
           </div>
 
+          {/* Hint */}
           <div className="space-y-1">
-            <label className="text-sm font-medium text-foreground">رابط المصدر</label>
-            <input {...register("sourceUrl")} dir="ltr" className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+            <label className={labelCls}>التلميح</label>
+            <input {...register("hint")} className={inputCls} />
+          </div>
+
+          {/* Explanation */}
+          <div className="space-y-1">
+            <label className={labelCls}>الشرح</label>
+            <textarea {...register("explanation")} rows={2} className={cn(inputCls, "resize-none")} />
+          </div>
+
+          {/* Source URL */}
+          <div className="space-y-1">
+            <label className={labelCls}>رابط المصدر</label>
+            <input {...register("sourceUrl")} dir="ltr" className={inputCls} />
+            {errors.sourceUrl && <p className="text-xs text-destructive">{errors.sourceUrl.message}</p>}
           </div>
 
           <div className="flex justify-start gap-2 pt-1">
-            <button type="button" onClick={() => setIsEditing(false)} className="px-4 py-2 text-sm rounded-lg border border-border text-foreground hover:bg-accent transition-colors">
+            <button
+              type="button"
+              onClick={() => setIsEditing(false)}
+              className="px-4 py-2 text-sm rounded-lg border border-border text-foreground hover:bg-accent transition-colors"
+            >
               إلغاء
             </button>
-            <button type="submit" disabled={isPending} className="px-4 py-2 text-sm rounded-lg bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50 transition-opacity">
+            <button
+              type="submit"
+              disabled={isPending}
+              className="px-4 py-2 text-sm rounded-lg bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50 transition-opacity"
+            >
               حفظ التعديلات
             </button>
           </div>

@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { Search, ExternalLink } from "lucide-react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Search, ExternalLink, Upload, CheckCircle, Loader2 } from "lucide-react";
 import { cn, formatDate } from "@/lib/utils";
 import type { Question } from "@/lib/db/schema";
 
@@ -25,14 +25,46 @@ const typeAr: Record<string, string> = {
   "Short Answer": "إجابة قصيرة",
 };
 
+async function fetchExportStats(): Promise<{ total: number; notExported: number }> {
+  const res = await fetch("/api/export");
+  if (!res.ok) return { total: 0, notExported: 0 };
+  return (await res.json()).data;
+}
+
 export function ApprovedLibrary() {
+  const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [filterDifficulty, setFilterDifficulty] = useState("");
   const [filterType, setFilterType] = useState("");
+  const [exportMsg, setExportMsg] = useState<string | null>(null);
 
   const { data: questions, isLoading, isError } = useQuery({
     queryKey: ["questions", "approved"],
     queryFn: fetchApprovedQuestions,
+  });
+
+  const { data: exportStats } = useQuery({
+    queryKey: ["export-stats"],
+    queryFn: fetchExportStats,
+  });
+
+  const exportMutation = useMutation({
+    mutationFn: async (onlyNew: boolean) => {
+      const res = await fetch("/api/export", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ onlyNew }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(typeof json.error === "string" ? json.error : "فشل التصدير");
+      return json.data as { exported: number; message: string };
+    },
+    onSuccess: (data) => {
+      setExportMsg(data.message);
+      queryClient.invalidateQueries({ queryKey: ["questions", "approved"] });
+      queryClient.invalidateQueries({ queryKey: ["export-stats"] });
+      setTimeout(() => setExportMsg(null), 4000);
+    },
   });
 
   const filtered = (questions ?? []).filter((q) => {
@@ -65,6 +97,50 @@ export function ApprovedLibrary() {
 
   return (
     <div className="space-y-4">
+
+      {/* Export bar */}
+      <div className="flex items-center justify-between rounded-lg border border-border bg-card px-4 py-3">
+        <div className="text-sm text-muted-foreground">
+          {exportStats ? (
+            <>
+              <span className="text-foreground font-medium">{exportStats.notExported}</span> سؤال لم يُصدَّر بعد
+              {" · "}
+              <span className="text-foreground font-medium">{exportStats.total}</span> إجمالي
+            </>
+          ) : "جاري التحميل…"}
+        </div>
+        <div className="flex items-center gap-2">
+          {exportMsg && (
+            <span className="flex items-center gap-1.5 text-xs text-success">
+              <CheckCircle className="h-3.5 w-3.5" />
+              {exportMsg}
+            </span>
+          )}
+          {exportMutation.isError && (
+            <span className="text-xs text-destructive">
+              {(exportMutation.error as Error).message}
+            </span>
+          )}
+          <button
+            onClick={() => exportMutation.mutate(true)}
+            disabled={exportMutation.isPending || exportStats?.notExported === 0}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-md bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50 transition-opacity"
+          >
+            {exportMutation.isPending
+              ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              : <Upload className="h-3.5 w-3.5" />}
+            تصدير الجديدة
+          </button>
+          <button
+            onClick={() => exportMutation.mutate(false)}
+            disabled={exportMutation.isPending || exportStats?.total === 0}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-md border border-border text-foreground hover:bg-accent disabled:opacity-50 transition-colors"
+          >
+            تصدير الكل
+          </button>
+        </div>
+      </div>
+
       <div className="flex flex-wrap gap-3">
         <div className="relative flex-1 min-w-52">
           <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
