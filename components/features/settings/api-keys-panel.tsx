@@ -1,0 +1,309 @@
+"use client";
+
+import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  Eye, EyeOff, Trash2, CheckCircle, XCircle, Loader2, Zap, Plus,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
+
+interface MaskedKey {
+  id: string;
+  provider: "gemini" | "groq";
+  label: string;
+  maskedKey: string;
+  isActive: boolean;
+  updatedAt: string;
+}
+
+const PROVIDERS = [
+  {
+    id: "gemini" as const,
+    name: "Google Gemini",
+    model: "gemini-2.0-flash",
+    description: "مجاني • دعم عربي ممتاز",
+    badge: "Google",
+    color: "text-blue-400",
+    bg: "bg-blue-500/10 border-blue-500/30",
+    activeBg: "bg-blue-500/20 border-blue-500",
+    placeholder: "AIzaSy...",
+    docsUrl: "https://aistudio.google.com/apikey",
+  },
+  {
+    id: "groq" as const,
+    name: "Groq",
+    model: "llama-3.3-70b-versatile",
+    description: "مجاني • سريع جداً",
+    badge: "Groq",
+    color: "text-orange-400",
+    bg: "bg-orange-500/10 border-orange-500/30",
+    activeBg: "bg-orange-500/20 border-orange-500",
+    placeholder: "gsk_...",
+    docsUrl: "https://console.groq.com/keys",
+  },
+];
+
+async function fetchKeys(): Promise<MaskedKey[]> {
+  const res = await fetch("/api/keys");
+  if (!res.ok) throw new Error("Failed to fetch");
+  return (await res.json()).data;
+}
+
+export function ApiKeysPanel() {
+  const queryClient = useQueryClient();
+  const { data: keys = [], isLoading } = useQuery({
+    queryKey: ["api-keys"],
+    queryFn: fetchKeys,
+  });
+
+  const [inputs, setInputs] = useState<Record<string, string>>({});
+  const [showKey, setShowKey] = useState<Record<string, boolean>>({});
+  const [testResult, setTestResult] = useState<Record<string, "idle" | "ok" | "error">>({});
+  const [testMsg, setTestMsg] = useState<Record<string, string>>({});
+
+  const saveMutation = useMutation({
+    mutationFn: async ({ provider, key }: { provider: string; key: string }) => {
+      const res = await fetch("/api/keys", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ provider, key, label: provider }),
+      });
+      if (!res.ok) throw new Error((await res.json()).error);
+      return res.json();
+    },
+    onSuccess: (_, { provider }) => {
+      queryClient.invalidateQueries({ queryKey: ["api-keys"] });
+      setInputs((p) => ({ ...p, [provider]: "" }));
+    },
+  });
+
+  const activateMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await fetch("/api/keys", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id }),
+      });
+      if (!res.ok) throw new Error("Failed to activate");
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["api-keys"] }),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await fetch("/api/keys", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id }),
+      });
+      if (!res.ok) throw new Error("Failed to delete");
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["api-keys"] }),
+  });
+
+  async function testKey(provider: "gemini" | "groq", key: string) {
+    setTestResult((p) => ({ ...p, [provider]: "idle" }));
+    setTestMsg((p) => ({ ...p, [provider]: "جاري الاختبار..." }));
+    try {
+      const res = await fetch("/api/keys/test", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ provider, key }),
+      });
+      const json = await res.json();
+      if (res.ok && json.data?.ok) {
+        setTestResult((p) => ({ ...p, [provider]: "ok" }));
+        setTestMsg((p) => ({ ...p, [provider]: "✓ الـ Key يعمل!" }));
+      } else {
+        setTestResult((p) => ({ ...p, [provider]: "error" }));
+        setTestMsg((p) => ({ ...p, [provider]: json.error ?? "فشل الاختبار" }));
+      }
+    } catch {
+      setTestResult((p) => ({ ...p, [provider]: "error" }));
+      setTestMsg((p) => ({ ...p, [provider]: "خطأ في الاتصال" }));
+    }
+  }
+
+  if (isLoading) {
+    return (
+      <div className="space-y-4">
+        {[0, 1].map((i) => (
+          <div key={i} className="h-48 rounded-lg border border-border bg-card animate-pulse" />
+        ))}
+      </div>
+    );
+  }
+
+  const keyMap = Object.fromEntries(keys.map((k) => [k.provider, k]));
+
+  return (
+    <div className="space-y-4">
+      {PROVIDERS.map((p) => {
+        const saved = keyMap[p.id];
+        const inputVal = inputs[p.id] ?? "";
+        const isActive = saved?.isActive ?? false;
+        const tResult = testResult[p.id];
+
+        return (
+          <div
+            key={p.id}
+            className={cn(
+              "rounded-lg border p-5 space-y-4 transition-all",
+              isActive ? p.activeBg : p.bg
+            )}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className={cn("text-2xl font-bold", p.color)}>
+                  {p.badge === "Google" ? "G" : "⚡"}
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-semibold text-foreground">{p.name}</h3>
+                    {isActive && (
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-success-bg text-success dark:bg-success/10 dark:text-success border border-success/40 dark:border-success/30 font-medium">
+                        نشط
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {p.description} — <span className="font-mono">{p.model}</span>
+                  </p>
+                </div>
+              </div>
+              {saved && (
+                <div className="flex items-center gap-2">
+                  {!isActive && (
+                    <button
+                      onClick={() => activateMutation.mutate(saved.id)}
+                      disabled={activateMutation.isPending}
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-md bg-success-bg border border-success/40 text-success hover:bg-success/10 dark:bg-success/10 dark:border-success/30 dark:text-success dark:hover:bg-success/20 transition-colors disabled:opacity-50"
+                    >
+                      <Zap className="h-3 w-3" />
+                      تفعيل
+                    </button>
+                  )}
+                  <button
+                    onClick={() => deleteMutation.mutate(saved.id)}
+                    disabled={deleteMutation.isPending}
+                    className="p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                    title="حذف"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Saved key display */}
+            {saved && (
+              <div className="flex items-center gap-2 rounded-md bg-background/50 border border-border px-3 py-2">
+                <span className="font-mono text-sm text-foreground flex-1">
+                  {showKey[p.id] ? "الـ key مخفي — أدخل key جديد للتغيير" : saved.maskedKey}
+                </span>
+                <span className="text-xs text-muted-foreground">محفوظ ومشفّر</span>
+              </div>
+            )}
+
+            {/* Input new key */}
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-muted-foreground">
+                {saved ? "تغيير الـ Key" : "أضف الـ Key"}
+                {" — "}
+                <a
+                  href={p.docsUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={cn("hover:underline", p.color)}
+                >
+                  احصل على key مجاني ↗
+                </a>
+              </label>
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <input
+                    type={showKey[p.id] ? "text" : "password"}
+                    value={inputVal}
+                    onChange={(e) =>
+                      setInputs((prev) => ({ ...prev, [p.id]: e.target.value }))
+                    }
+                    placeholder={p.placeholder}
+                    className="w-full rounded-md border border-input bg-background px-3 py-2 pr-10 text-sm font-mono text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                  />
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setShowKey((prev) => ({ ...prev, [p.id]: !prev[p.id] }))
+                    }
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  >
+                    {showKey[p.id] ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
+                  </button>
+                </div>
+
+                {/* Test button */}
+                <button
+                  onClick={() => testKey(p.id, inputVal)}
+                  disabled={!inputVal || tResult === "idle"}
+                  className="px-3 py-2 text-xs rounded-md border border-border text-muted-foreground hover:bg-accent hover:text-foreground transition-colors disabled:opacity-40"
+                  title="اختبر الـ key"
+                >
+                  {tResult === "idle" ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    "اختبر"
+                  )}
+                </button>
+
+                {/* Save button */}
+                <button
+                  onClick={() => saveMutation.mutate({ provider: p.id, key: inputVal })}
+                  disabled={!inputVal || saveMutation.isPending}
+                  className={cn(
+                    "flex items-center gap-1.5 px-3 py-2 text-xs rounded-md font-medium transition-colors disabled:opacity-50",
+                    "bg-primary text-primary-foreground hover:opacity-90"
+                  )}
+                >
+                  {saveMutation.isPending && saveMutation.variables?.provider === p.id ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Plus className="h-3.5 w-3.5" />
+                  )}
+                  حفظ
+                </button>
+              </div>
+
+              {/* Test result */}
+              {testMsg[p.id] && (
+                <div
+                  className={cn(
+                    "flex items-center gap-2 text-xs px-3 py-2 rounded-md border",
+                    tResult === "ok"
+                      ? "bg-success-bg border-success/40 text-success dark:bg-success/10 dark:border-success/30 dark:text-success"
+                      : tResult === "error"
+                      ? "bg-destructive/10 border-destructive/30 text-destructive"
+                      : "bg-muted border-border text-muted-foreground"
+                  )}
+                >
+                  {tResult === "ok" ? (
+                    <CheckCircle className="h-3.5 w-3.5 shrink-0" />
+                  ) : tResult === "error" ? (
+                    <XCircle className="h-3.5 w-3.5 shrink-0" />
+                  ) : (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin shrink-0" />
+                  )}
+                  <span className="line-clamp-2">{testMsg[p.id]}</span>
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}

@@ -1,7 +1,13 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  output: "standalone",
+  serverExternalPackages: [
+    "pg",
+    "pg-pool",
+    "better-auth",
+    "@tavily/core",
+  ],
 };
 
 export default nextConfig;
