@@ -133,6 +133,7 @@ export const questions = pgTable("questions", {
   status: questionStatusEnum("status").notNull().default("pending"),
   configId: uuid("config_id").references(() => agentConfigs.id),
   reviewedBy: text("reviewed_by").references(() => users.id),
+  questionHash: text("question_hash"),
   exportedAt: timestamp("exported_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),

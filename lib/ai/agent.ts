@@ -4,6 +4,7 @@ import { db, agentConfigs, questions, apiKeys } from "@/lib/db";
 import { eq } from "drizzle-orm";
 import { sanitizeText } from "@/lib/ai/sanitize";
 import { decrypt } from "@/lib/crypto";
+import { hashQuestion } from "@/lib/utils";
 import {
   buildOutputSchema,
   formatFewShotExamples,
@@ -278,7 +279,7 @@ export async function generateQuestions({
   const validator = buildZodValidator(domains);
   const validated = validator.parse(raw);
 
-  // Save to DB
+  // Save to DB — skip duplicates via questionHash unique index
   const savedQuestions = await db
     .insert(questions)
     .values(
@@ -295,8 +296,10 @@ export async function generateQuestions({
         difficulty: q.difficulty as "Easy" | "Medium" | "Hard",
         status: "pending" as const,
         configId: config!.id,
+        questionHash: hashQuestion(q.question),
       }))
     )
+    .onConflictDoNothing({ target: questions.questionHash })
     .returning();
 
   return savedQuestions;
