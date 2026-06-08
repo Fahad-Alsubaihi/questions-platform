@@ -51,4 +51,4 @@ networks:
     driver: bridge
   traefik_proxy:
     external: true
-    name: ${TRAEFIK_NETWORK:-traefik_proxy}
+    name: ${TRAEFIK_NETWORK:-n8n_traefik_public}
