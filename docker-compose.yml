@@ -21,6 +21,7 @@ services:
       - traefik_proxy
     labels:
       - "traefik.enable=true"
+      - "traefik.docker.network=${TRAEFIK_NETWORK:-n8n_traefik_public}"
       - "traefik.http.routers.trivia.rule=Host(`${DOMAIN}`)"
       - "traefik.http.routers.trivia.entrypoints=websecure"
       - "traefik.http.routers.trivia.tls.certresolver=letsencrypt"
