@@ -1,32 +1,15 @@
 version: "3.9"
 
-services:
-  app:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    restart: unless-stopped
-    environment:
-      DATABASE_URL: ${DATABASE_URL}
-      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET}
-      BETTER_AUTH_URL: ${BETTER_AUTH_URL}
-      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL}
-      TAVILY_API_KEY: ${TAVILY_API_KEY:-}
-      PRODUCTION_DB_URL: ${PRODUCTION_DB_URL:-}
-    depends_on:
-      db:
-        condition: service_healthy
-    networks:
-      - trivia_internal
-      - traefik_proxy
-    labels:
-      - "traefik.enable=true"
-      - "traefik.docker.network=${TRAEFIK_NETWORK:-n8n_traefik_public}"
-      - "traefik.http.routers.trivia.rule=Host(`${DOMAIN}`)"
-      - "traefik.http.routers.trivia.entrypoints=websecure"
-      - "traefik.http.routers.trivia.tls.certresolver=letsencrypt"
-      - "traefik.http.services.trivia.loadbalancer.server.port=3000"
+networks:
+  n8n_traefik_public:
+    external: true
+  trivia_internal:
+    driver: bridge
 
+volumes:
+  pgdata:
+
+services:
   db:
     image: postgres:16-alpine
     restart: unless-stopped
@@ -44,12 +27,35 @@ services:
     networks:
       - trivia_internal
 
-volumes:
-  pgdata:
-
-networks:
-  trivia_internal:
-    driver: bridge
-  traefik_proxy:
-    external: true
-    name: ${TRAEFIK_NETWORK:-n8n_traefik_public}
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET}
+      BETTER_AUTH_URL: ${BETTER_AUTH_URL}
+      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL}
+      TAVILY_API_KEY: ${TAVILY_API_KEY:-}
+      PRODUCTION_DB_URL: ${PRODUCTION_DB_URL:-}
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - trivia_internal
+      - n8n_traefik_public
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=n8n_traefik_public
+      # HTTPS
+      - traefik.http.routers.trivia.rule=Host(`${DOMAIN}`)
+      - traefik.http.routers.trivia.entrypoints=websecure
+      - traefik.http.routers.trivia.tls.certresolver=letsencrypt
+      - traefik.http.services.trivia.loadbalancer.server.port=3000
+      # HTTP → HTTPS redirect
+      - traefik.http.routers.trivia-http.rule=Host(`${DOMAIN}`)
+      - traefik.http.routers.trivia-http.entrypoints=web
+      - traefik.http.routers.trivia-http.middlewares=trivia-https-redirect
+      - traefik.http.middlewares.trivia-https-redirect.redirectscheme.scheme=https
+      - traefik.http.middlewares.trivia-https-redirect.redirectscheme.permanent=true
