@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import type { Metadata } from "next";
 import { ConfigPanel } from "@/components/features/settings/config-panel";
 import { ApiKeysPanel } from "@/components/features/settings/api-keys-panel";
+import { UsersPanel } from "@/components/features/settings/users-panel";
 
 export const metadata: Metadata = {
   title: "Settings | Trivia Platform",
@@ -38,6 +39,17 @@ export default async function SettingsPage() {
           </p>
         </div>
         <ConfigPanel />
+      </section>
+
+      {/* Users */}
+      <section className="space-y-4">
+        <div>
+          <h2 className="text-xl font-bold text-foreground">إدارة المستخدمين</h2>
+          <p className="text-sm text-muted-foreground mt-1">
+            إضافة المستخدمين وتعديل بياناتهم وصلاحياتهم
+          </p>
+        </div>
+        <UsersPanel />
       </section>
     </div>
   );

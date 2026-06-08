@@ -18,6 +18,7 @@ export const agentGenerateSchema = z.object({
   count: z.number().int().min(1, "Min 1").max(20, "Max 20").default(5),
   difficulty: z.enum(["Easy", "Medium", "Hard"]).optional(),
   domain: z.string().optional(),
+  sourceUrls: z.array(z.string().url()).max(5).optional(),
 });
 
 export const agentConfigSchema = z.object({

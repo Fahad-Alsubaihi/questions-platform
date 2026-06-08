@@ -88,7 +88,7 @@ export const verifications = pgTable("verifications", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
-export const providerEnum = pgEnum("ai_provider", ["gemini", "groq"]);
+export const providerEnum = pgEnum("ai_provider", ["gemini", "groq", "tavily"]);
 
 export const apiKeys = pgTable("api_keys", {
   id: uuid("id").primaryKey().defaultRandom(),

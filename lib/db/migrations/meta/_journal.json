@@ -16,5 +16,12 @@
       "tag": "0001_little_black_tarantula",
       "breakpoints": true
     }
+    ,{
+      "idx": 2,
+      "version": "7",
+      "when": 1780915006991,
+      "tag": "0002_tavily_and_users",
+      "breakpoints": true
+    }
   ]
 }

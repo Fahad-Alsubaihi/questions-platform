@@ -16,6 +16,15 @@ interface MaskedKey {
   updatedAt: string;
 }
 
+const TAVILY = {
+  name: "Tavily Search",
+  description: "محرك بحث الـ AI — يُستخدم لجلب المحتوى من الإنترنت",
+  placeholder: "tvly-...",
+  docsUrl: "https://app.tavily.com/home",
+  color: "text-violet-400",
+  bg: "bg-violet-500/10 border-violet-500/30",
+};
+
 const PROVIDERS = [
   {
     id: "gemini" as const,
@@ -127,7 +136,7 @@ export function ApiKeysPanel() {
   if (isLoading) {
     return (
       <div className="space-y-4">
-        {[0, 1].map((i) => (
+        {[0, 1, 2].map((i) => (
           <div key={i} className="h-48 rounded-lg border border-border bg-card animate-pulse" />
         ))}
       </div>
@@ -135,9 +144,88 @@ export function ApiKeysPanel() {
   }
 
   const keyMap = Object.fromEntries(keys.map((k) => [k.provider, k]));
+  const tavilyKey = keyMap["tavily"];
+  const tavilyInput = inputs["tavily"] ?? "";
 
   return (
     <div className="space-y-4">
+      {/* Tavily Search Key */}
+      <div className={cn("rounded-lg border p-5 space-y-4", TAVILY.bg)}>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className={cn("text-2xl font-bold", TAVILY.color)}>🔍</div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="font-semibold text-foreground">{TAVILY.name}</h3>
+                {tavilyKey && (
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-success-bg text-success dark:bg-success/10 dark:text-success border border-success/40 dark:border-success/30 font-medium">
+                    مفعّل
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground mt-0.5">{TAVILY.description}</p>
+            </div>
+          </div>
+          {tavilyKey && (
+            <button
+              onClick={() => deleteMutation.mutate(tavilyKey.id)}
+              disabled={deleteMutation.isPending}
+              className="p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+              title="حذف"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
+
+        {tavilyKey && (
+          <div className="flex items-center gap-2 rounded-md bg-background/50 border border-border px-3 py-2">
+            <span className="font-mono text-sm text-foreground flex-1">{tavilyKey.maskedKey}</span>
+            <span className="text-xs text-muted-foreground">محفوظ ومشفّر</span>
+          </div>
+        )}
+
+        <div className="space-y-2">
+          <label className="text-xs font-medium text-muted-foreground">
+            {tavilyKey ? "تغيير الـ Key" : "أضف الـ Key"}
+            {" — "}
+            <a href={TAVILY.docsUrl} target="_blank" rel="noopener noreferrer" className={cn("hover:underline", TAVILY.color)}>
+              احصل على key مجاني ↗
+            </a>
+          </label>
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+              <input
+                type={showKey["tavily"] ? "text" : "password"}
+                value={tavilyInput}
+                onChange={(e) => setInputs((p) => ({ ...p, tavily: e.target.value }))}
+                placeholder={TAVILY.placeholder}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 pr-10 text-sm font-mono text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+              />
+              <button
+                type="button"
+                onClick={() => setShowKey((p) => ({ ...p, tavily: !p["tavily"] }))}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
+                {showKey["tavily"] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
+            <button
+              onClick={() => saveMutation.mutate({ provider: "tavily", key: tavilyInput })}
+              disabled={!tavilyInput || saveMutation.isPending}
+              className="flex items-center gap-1.5 px-3 py-2 text-xs rounded-md font-medium bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50"
+            >
+              {saveMutation.isPending && saveMutation.variables?.provider === "tavily" ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Plus className="h-3.5 w-3.5" />
+              )}
+              حفظ
+            </button>
+          </div>
+        </div>
+      </div>
+
       {PROVIDERS.map((p) => {
         const saved = keyMap[p.id];
         const inputVal = inputs[p.id] ?? "";

@@ -76,8 +76,16 @@ async function getActiveConfig() {
   return configs[0] ?? null;
 }
 
+async function getTavilyKey(): Promise<string> {
+  try {
+    const rows = await db.select().from(apiKeys).where(eq(apiKeys.provider, "tavily" as "gemini")).limit(1);
+    if (rows.length > 0) return decrypt(rows[0].encryptedKey);
+  } catch {}
+  return process.env.TAVILY_API_KEY ?? "";
+}
+
 async function searchWeb(query: string): Promise<string> {
-  const tavilyKey = process.env.TAVILY_API_KEY;
+  const tavilyKey = await getTavilyKey();
   if (!tavilyKey) return "";
   try {
     const { tavily } = await import("@tavily/core");
@@ -88,6 +96,21 @@ async function searchWeb(query: string): Promise<string> {
     });
     return result.results
       .map((r) => `العنوان: ${r.title}\nالمحتوى: ${r.content}\nالمصدر: ${r.url}`)
+      .join("\n\n---\n\n");
+  } catch {
+    return "";
+  }
+}
+
+async function extractFromUrls(urls: string[]): Promise<string> {
+  const tavilyKey = await getTavilyKey();
+  if (!tavilyKey || urls.length === 0) return "";
+  try {
+    const { tavily } = await import("@tavily/core");
+    const client = tavily({ apiKey: tavilyKey });
+    const result = await client.extract(urls);
+    return result.results
+      .map((r) => `المصدر: ${r.url}\nالمحتوى: ${r.rawContent}`)
       .join("\n\n---\n\n");
   } catch {
     return "";
@@ -119,13 +142,16 @@ async function generateWithGroq(
   examples: FewShotExample[],
   topic: string,
   userContent: string,
-  temperature: number
+  temperature: number,
+  systemContent: string
 ) {
   const schemaStr = JSON.stringify(outputSchemaJson, null, 2);
   const examplesStr = formatFewShotExamples(examples);
 
   // Topic goes FIRST — before schema and examples — to avoid model drift
   const fullSystem = `المهمة: أنت مولد أسئلة تريفيا بالعربية عن "${topic}" فقط. لا تولّد أسئلة عن أي موضوع آخر.
+
+${systemContent}
 
 أجب بـ JSON فقط يطابق هذا الـ schema:
 ${schemaStr}
@@ -155,12 +181,14 @@ export async function generateQuestions({
   difficulty,
   domain,
   configId,
+  sourceUrls,
 }: {
   topic: string;
   count: number;
   difficulty?: string;
   domain?: string;
   configId?: string;
+  sourceUrls?: string[];
 }) {
   const sanitizedTopic = sanitizeText(topic);
   const { model, provider } = await getActiveProvider();
@@ -187,18 +215,24 @@ export async function generateQuestions({
       ? (config.outputSchema as Record<string, unknown>)
       : buildOutputSchema(domains);
 
-  // Search
-  const [r1, r2] = await Promise.all([
-    searchWeb(sanitizedTopic),
-    searchWeb(`معلومات وحقائق عن ${sanitizedTopic}`),
-  ]);
-  const searchResults = [r1, r2].filter(Boolean).join("\n\n===\n\n");
+  // Search or extract from provided URLs
+  let searchResults: string;
+  let realUrls: string[];
 
-  // Extract real URLs from search results to force model to use them
-  const urlMatches = searchResults.match(/المصدر:\s*(https?:\/\/[^\s\n]+)/g) ?? [];
-  const realUrls = urlMatches
-    .map((m) => m.replace(/^المصدر:\s*/, "").trim())
-    .filter(Boolean);
+  if (sourceUrls && sourceUrls.length > 0) {
+    searchResults = await extractFromUrls(sourceUrls);
+    realUrls = sourceUrls;
+  } else {
+    const [r1, r2] = await Promise.all([
+      searchWeb(sanitizedTopic),
+      searchWeb(`معلومات وحقائق عن ${sanitizedTopic}`),
+    ]);
+    searchResults = [r1, r2].filter(Boolean).join("\n\n===\n\n");
+    const urlMatches = searchResults.match(/المصدر:\s*(https?:\/\/[^\s\n]+)/g) ?? [];
+    realUrls = urlMatches
+      .map((m) => m.replace(/^المصدر:\s*/, "").trim())
+      .filter(Boolean);
+  }
 
   const systemContent = config.systemPrompt;
 
@@ -226,7 +260,7 @@ export async function generateQuestions({
   if (provider === "gemini") {
     raw = await generateWithGemini(model, outputSchemaJson, systemContent, userContent, config.temperature);
   } else {
-    raw = await generateWithGroq(model, outputSchemaJson, fewShotExamples, sanitizedTopic, userContent, config.temperature);
+    raw = await generateWithGroq(model, outputSchemaJson, fewShotExamples, sanitizedTopic, userContent, config.temperature, systemContent);
   }
 
   // Normalize domains — snap model output to nearest configured domain

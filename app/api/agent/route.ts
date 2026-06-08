@@ -27,6 +27,7 @@ export async function POST(req: NextRequest) {
       count: parsed.data.count,
       difficulty: parsed.data.difficulty,
       domain: parsed.data.domain,
+      sourceUrls: parsed.data.sourceUrls,
     });
 
     return NextResponse.json({ data: savedQuestions });
