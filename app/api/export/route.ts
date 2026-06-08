@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { db, questions } from "@/lib/db";
-import { eq, isNull, inArray } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 import { getErrorMessage } from "@/lib/utils";
@@ -21,13 +21,8 @@ export async function GET() {
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   try {
-    const pending = await db
-      .select({ id: questions.id })
-      .from(questions)
-      .where(eq(questions.status, "approved"));
-
-    const unexported = pending.filter((q) => !q.id);
-    const all = await db.select({ id: questions.id, exportedAt: questions.exportedAt })
+    const all = await db
+      .select({ id: questions.id, exportedAt: questions.exportedAt })
       .from(questions)
       .where(eq(questions.status, "approved"));
 

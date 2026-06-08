@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { db } from "@/lib/db";
-import { users } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
+import { users, accounts } from "@/lib/db/schema";
+import { eq, and } from "drizzle-orm";
 import { getErrorMessage } from "@/lib/utils";
 import { z } from "zod";
 
@@ -91,7 +91,12 @@ export async function PATCH(req: NextRequest) {
     }
 
     if (password) {
-      await auth.api.setPassword({ body: { userId: id, newPassword: password } });
+      const ctx = await auth.$context;
+      const hashed = await ctx.password.hash(password);
+      await db
+        .update(accounts)
+        .set({ password: hashed, updatedAt: new Date() })
+        .where(and(eq(accounts.userId, id), eq(accounts.providerId, "credential")));
     }
 
     return NextResponse.json({ data: { ok: true } });

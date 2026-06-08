@@ -5,7 +5,7 @@ import { db, agentConfigs } from "@/lib/db";
 import { eq } from "drizzle-orm";
 import { agentConfigSchema } from "@/lib/validations/question";
 import { getErrorMessage } from "@/lib/utils";
-import { buildOutputSchema, DEFAULT_FEW_SHOT_EXAMPLES, MINIMAL_SYSTEM_PROMPT } from "@/lib/ai/schema-builder";
+import { buildOutputSchema, DEFAULT_FEW_SHOT_EXAMPLES } from "@/lib/ai/schema-builder";
 
 async function requireAdmin() {
   const session = await auth.api.getSession({ headers: await headers() });
