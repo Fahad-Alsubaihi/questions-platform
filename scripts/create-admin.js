@@ -5,7 +5,7 @@ const crypto = require("crypto");
 function hashPassword(password) {
   const salt = crypto.randomBytes(16).toString("hex");
   const key = crypto.scryptSync(password.normalize("NFKC"), salt, 64, {
-    N: 16384, r: 16, p: 1,
+    N: 4096, r: 8, p: 1,
   });
   return `${salt}:${key.toString("hex")}`;
 }
