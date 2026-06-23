@@ -14,7 +14,7 @@ type GenerateFormValues = z.input<typeof agentGenerateSchema>;
 export function GenerateForm() {
   const queryClient = useQueryClient();
   const { configs } = useAgentConfig();
-  const activeConfig = configs.find((c) => c.isActive === "true");
+  const activeConfig = configs.find((c) => c.isActive === true);
   const activeDomains = (activeConfig?.activeDomains as string[]) ?? [];
 
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");

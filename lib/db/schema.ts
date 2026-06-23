@@ -113,7 +113,7 @@ export const agentConfigs = pgTable("agent_configs", {
   // 2 Arabic few-shot examples shown to the model
   fewShotExamples: jsonb("few_shot_examples").$type<Record<string, unknown>[]>().default([]),
   searchConstraints: jsonb("search_constraints").$type<Record<string, unknown>>().default({}),
-  isActive: text("is_active").notNull().default("true"),
+  isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

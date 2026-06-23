@@ -72,7 +72,7 @@ async function getActiveConfig() {
   const configs = await db
     .select()
     .from(agentConfigs)
-    .where(eq(agentConfigs.isActive, "true"))
+    .where(eq(agentConfigs.isActive, true))
     .limit(1);
   return configs[0] ?? null;
 }

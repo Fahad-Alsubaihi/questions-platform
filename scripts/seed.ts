@@ -23,7 +23,7 @@ async function seed() {
       outputSchema,
       fewShotExamples: DEFAULT_FEW_SHOT_EXAMPLES,
       searchConstraints: { maxResults: 5 },
-      isActive: "true",
+      isActive: true,
     });
 
     console.log("✓ Created default agent config");
