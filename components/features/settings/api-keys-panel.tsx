@@ -205,7 +205,7 @@ export function ApiKeysPanel() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["api-keys"] }),
   });
 
-  async function testKey(provider: "gemini" | "groq", key: string) {
+  async function testKey(provider: "gemini" | "groq" | "anthropic", key: string) {
     setTestResult((p) => ({ ...p, [provider]: "idle" }));
     setTestMsg((p) => ({ ...p, [provider]: "جاري الاختبار..." }));
     try {

@@ -33,6 +33,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ data: { ok: true, provider: "groq" } });
     }
 
+    if (provider === "anthropic") {
+      const { createAnthropic } = await import("@ai-sdk/anthropic");
+      const { generateText } = await import("ai");
+      const anthropic = createAnthropic({ apiKey: key });
+      await generateText({ model: anthropic("claude-haiku-4-5-20251001"), prompt: "Say OK.", maxOutputTokens: 5 });
+      return NextResponse.json({ data: { ok: true, provider: "anthropic" } });
+    }
+
     return NextResponse.json({ error: "Invalid provider" }, { status: 400 });
   } catch (err) {
     return NextResponse.json(
