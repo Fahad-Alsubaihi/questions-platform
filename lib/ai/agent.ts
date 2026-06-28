@@ -299,7 +299,7 @@ export async function generateQuestions({
         questionHash: hashQuestion(q.question),
       }))
     )
-    .onConflictDoNothing({ target: questions.questionHash })
+    .onConflictDoNothing()
     .returning();
 
   return savedQuestions;

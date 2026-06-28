@@ -42,7 +42,7 @@ async function importQuestions() {
   const inserted = await db
     .insert(questions)
     .values(toInsert)
-    .onConflictDoNothing({ target: questions.questionHash })
+    .onConflictDoNothing()
     .returning({ id: questions.id });
 
   const skipped = toInsert.length - inserted.length;
