@@ -108,7 +108,7 @@ export function ApiKeysPanel() {
   const [testMsg, setTestMsg] = useState<Record<string, string>>({});
   const debounceRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
-  async function loadModelsByKey(provider: "gemini" | "groq", key: string) {
+  async function loadModelsByKey(provider: "gemini" | "groq" | "anthropic", key: string) {
     if (key.length < 10) return;
     clearTimeout(debounceRef.current[provider]);
     debounceRef.current[provider] = setTimeout(async () => {
@@ -129,7 +129,7 @@ export function ApiKeysPanel() {
     }, 800);
   }
 
-  async function loadModelsById(id: string, provider: "gemini" | "groq") {
+  async function loadModelsById(id: string, provider: "gemini" | "groq" | "anthropic") {
     setModelsLoading((p) => ({ ...p, [provider]: true }));
     setModelsError((p) => ({ ...p, [provider]: "" }));
     try {
