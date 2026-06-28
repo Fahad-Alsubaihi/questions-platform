@@ -15,7 +15,7 @@
     "db:import": "tsx scripts/import-questions.ts"
   },
   "dependencies": {
-    "@ai-sdk/anthropic": "^4.0.1",
+    "@ai-sdk/anthropic": "^3.0.89",
     "@ai-sdk/google": "^3.0.80",
     "@ai-sdk/groq": "^3.0.39",
     "@ai-sdk/openai": "^3.0.68",
