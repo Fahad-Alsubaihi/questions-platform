@@ -28,10 +28,9 @@ const TAVILY = {
 
 const MODELS: Record<"gemini" | "groq", { id: string; name: string; badge?: string }[]> = {
   gemini: [
-    { id: "gemini-2.0-flash", name: "Gemini 2.0 Flash", badge: "الأسرع" },
-    { id: "gemini-2.5-flash-preview-05-20", name: "Gemini 2.5 Flash", badge: "الأذكى" },
-    { id: "gemini-1.5-pro", name: "Gemini 1.5 Pro" },
-    { id: "gemini-1.5-flash", name: "Gemini 1.5 Flash" },
+    { id: "gemini-2.0-flash", name: "Gemini 2.0 Flash", badge: "موصى به" },
+    { id: "gemini-2.0-flash-lite", name: "Gemini 2.0 Flash Lite", badge: "الأسرع" },
+    { id: "gemini-1.5-pro", name: "Gemini 1.5 Pro", badge: "الأدق" },
   ],
   groq: [
     { id: "meta-llama/llama-4-scout-17b-16e-instruct", name: "Llama 4 Scout 17B", badge: "موصى به" },
