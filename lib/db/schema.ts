@@ -94,6 +94,7 @@ export const apiKeys = pgTable("api_keys", {
   id: uuid("id").primaryKey().defaultRandom(),
   provider: providerEnum("provider").notNull(),
   encryptedKey: text("encrypted_key").notNull(),
+  model: text("model").notNull().default(""),
   isActive: boolean("is_active").notNull().default(false),
   label: text("label").notNull().default(""),
   createdAt: timestamp("created_at").defaultNow().notNull(),

@@ -24,6 +24,7 @@ export async function GET() {
       id: r.id,
       provider: r.provider,
       label: r.label,
+      model: r.model,
       maskedKey: maskKey(decrypt(r.encryptedKey)),
       isActive: r.isActive,
       updatedAt: r.updatedAt,
@@ -40,7 +41,7 @@ export async function POST(req: NextRequest) {
   if (!session) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   try {
-    const { provider, key, label } = await req.json();
+    const { provider, key, label, model } = await req.json();
 
     if (!provider || !key) {
       return NextResponse.json({ error: "provider and key are required" }, { status: 400 });
@@ -59,6 +60,7 @@ export async function POST(req: NextRequest) {
       .values({
         provider,
         encryptedKey,
+        model: model ?? "",
         label: label ?? provider,
         isActive: false,
       })
@@ -85,16 +87,16 @@ export async function PATCH(req: NextRequest) {
   if (!session) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   try {
-    const { id } = await req.json();
+    const { id, model } = await req.json();
     if (!id) return NextResponse.json({ error: "id is required" }, { status: 400 });
 
     // Deactivate all AI providers only (not tavily)
     await db.update(apiKeys).set({ isActive: false }).where(eq(apiKeys.provider, "gemini"));
     await db.update(apiKeys).set({ isActive: false }).where(eq(apiKeys.provider, "groq"));
-    // Activate selected
+    // Activate selected and optionally update model
     const [updated] = await db
       .update(apiKeys)
-      .set({ isActive: true, updatedAt: new Date() })
+      .set({ isActive: true, updatedAt: new Date(), ...(model !== undefined ? { model } : {}) })
       .where(eq(apiKeys.id, id))
       .returning();
 

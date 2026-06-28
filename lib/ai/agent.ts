@@ -55,14 +55,15 @@ async function getActiveProvider() {
   if (row.provider === "gemini") {
     const { createGoogleGenerativeAI } = await import("@ai-sdk/google");
     const google = createGoogleGenerativeAI({ apiKey: key });
-    return { model: google("gemini-2.0-flash"), provider: "gemini" as const };
+    const modelId = row.model || "gemini-2.0-flash";
+    return { model: google(modelId), provider: "gemini" as const };
   }
 
   if (row.provider === "groq") {
     const { createGroq } = await import("@ai-sdk/groq");
     const groq = createGroq({ apiKey: key });
-    // llama-4-scout: better instruction following than 3.3
-    return { model: groq("meta-llama/llama-4-scout-17b-16e-instruct"), provider: "groq" as const };
+    const modelId = row.model || "meta-llama/llama-4-scout-17b-16e-instruct";
+    return { model: groq(modelId), provider: "groq" as const };
   }
 
   throw new Error(`Unknown provider: ${row.provider}`);

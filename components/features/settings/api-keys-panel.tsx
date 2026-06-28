@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
-  Eye, EyeOff, Trash2, CheckCircle, XCircle, Loader2, Zap, Plus,
+  Eye, EyeOff, Trash2, CheckCircle, XCircle, Loader2, Zap, Plus, ChevronDown,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -11,6 +11,7 @@ interface MaskedKey {
   id: string;
   provider: "gemini" | "groq";
   label: string;
+  model: string;
   maskedKey: string;
   isActive: boolean;
   updatedAt: string;
@@ -25,12 +26,27 @@ const TAVILY = {
   bg: "bg-violet-500/10 border-violet-500/30",
 };
 
+const MODELS: Record<"gemini" | "groq", { id: string; name: string; badge?: string }[]> = {
+  gemini: [
+    { id: "gemini-2.0-flash", name: "Gemini 2.0 Flash", badge: "الأسرع" },
+    { id: "gemini-2.5-flash-preview-05-20", name: "Gemini 2.5 Flash", badge: "الأذكى" },
+    { id: "gemini-1.5-pro", name: "Gemini 1.5 Pro" },
+    { id: "gemini-1.5-flash", name: "Gemini 1.5 Flash" },
+  ],
+  groq: [
+    { id: "meta-llama/llama-4-scout-17b-16e-instruct", name: "Llama 4 Scout 17B", badge: "موصى به" },
+    { id: "llama-3.3-70b-versatile", name: "Llama 3.3 70B", badge: "الأدق" },
+    { id: "llama3-8b-8192", name: "Llama 3 8B", badge: "الأسرع" },
+    { id: "gemma2-9b-it", name: "Gemma 2 9B" },
+    { id: "mixtral-8x7b-32768", name: "Mixtral 8x7B" },
+  ],
+};
+
 const PROVIDERS = [
   {
     id: "gemini" as const,
     name: "Google Gemini",
-    model: "gemini-2.0-flash",
-    description: "مجاني • دعم عربي ممتاز",
+    description: "دعم عربي ممتاز",
     badge: "Google",
     color: "text-blue-400",
     bg: "bg-blue-500/10 border-blue-500/30",
@@ -41,7 +57,6 @@ const PROVIDERS = [
   {
     id: "groq" as const,
     name: "Groq",
-    model: "llama-3.3-70b-versatile",
     description: "مجاني • سريع جداً",
     badge: "Groq",
     color: "text-orange-400",
@@ -66,16 +81,17 @@ export function ApiKeysPanel() {
   });
 
   const [inputs, setInputs] = useState<Record<string, string>>({});
+  const [selectedModels, setSelectedModels] = useState<Record<string, string>>({});
   const [showKey, setShowKey] = useState<Record<string, boolean>>({});
   const [testResult, setTestResult] = useState<Record<string, "idle" | "ok" | "error">>({});
   const [testMsg, setTestMsg] = useState<Record<string, string>>({});
 
   const saveMutation = useMutation({
-    mutationFn: async ({ provider, key }: { provider: string; key: string }) => {
+    mutationFn: async ({ provider, key, model }: { provider: string; key: string; model: string }) => {
       const res = await fetch("/api/keys", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ provider, key, label: provider }),
+        body: JSON.stringify({ provider, key, label: provider, model }),
       });
       if (!res.ok) throw new Error((await res.json()).error);
       return res.json();
@@ -87,13 +103,25 @@ export function ApiKeysPanel() {
   });
 
   const activateMutation = useMutation({
-    mutationFn: async (id: string) => {
+    mutationFn: async ({ id, model }: { id: string; model?: string }) => {
       const res = await fetch("/api/keys", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id }),
+        body: JSON.stringify({ id, model }),
       });
       if (!res.ok) throw new Error("Failed to activate");
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["api-keys"] }),
+  });
+
+  const updateModelMutation = useMutation({
+    mutationFn: async ({ id, model }: { id: string; model: string }) => {
+      const res = await fetch("/api/keys", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, model }),
+      });
+      if (!res.ok) throw new Error("Failed to update model");
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["api-keys"] }),
   });
@@ -211,7 +239,7 @@ export function ApiKeysPanel() {
               </button>
             </div>
             <button
-              onClick={() => saveMutation.mutate({ provider: "tavily", key: tavilyInput })}
+              onClick={() => saveMutation.mutate({ provider: "tavily", key: tavilyInput, model: "" })}
               disabled={!tavilyInput || saveMutation.isPending}
               className="flex items-center gap-1.5 px-3 py-2 text-xs rounded-md font-medium bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50"
             >
@@ -227,10 +255,15 @@ export function ApiKeysPanel() {
       </div>
 
       {PROVIDERS.map((p) => {
-        const saved = keyMap[p.id];
+        const saved = keyMap[p.id] as MaskedKey | undefined;
         const inputVal = inputs[p.id] ?? "";
         const isActive = saved?.isActive ?? false;
         const tResult = testResult[p.id];
+        const models = MODELS[p.id];
+        const defaultModel = models[0].id;
+        const currentModel = saved?.model || defaultModel;
+        const selectedModel = selectedModels[p.id] ?? defaultModel;
+        const currentModelName = models.find((m) => m.id === currentModel)?.name ?? currentModel;
 
         return (
           <div
@@ -256,7 +289,10 @@ export function ApiKeysPanel() {
                     )}
                   </div>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    {p.description} — <span className="font-mono">{p.model}</span>
+                    {p.description}
+                    {saved && (
+                      <> — <span className={cn("font-mono font-medium", p.color)}>{currentModelName}</span></>
+                    )}
                   </p>
                 </div>
               </div>
@@ -264,7 +300,7 @@ export function ApiKeysPanel() {
                 <div className="flex items-center gap-2">
                   {!isActive && (
                     <button
-                      onClick={() => activateMutation.mutate(saved.id)}
+                      onClick={() => activateMutation.mutate({ id: saved.id })}
                       disabled={activateMutation.isPending}
                       className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-md bg-success-bg border border-success/40 text-success hover:bg-success/10 dark:bg-success/10 dark:border-success/30 dark:text-success dark:hover:bg-success/20 transition-colors disabled:opacity-50"
                     >
@@ -284,12 +320,38 @@ export function ApiKeysPanel() {
               )}
             </div>
 
+            {/* Current model selector (when key is saved) */}
+            {saved && (
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">المودل المستخدم</label>
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <select
+                      value={currentModel}
+                      onChange={(e) => updateModelMutation.mutate({ id: saved.id, model: e.target.value })}
+                      className="w-full appearance-none rounded-md border border-input bg-background px-3 py-2 pr-8 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                    >
+                      {models.map((m) => (
+                        <option key={m.id} value={m.id}>
+                          {m.name}{m.badge ? ` — ${m.badge}` : ""}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                  </div>
+                  {updateModelMutation.isPending && (
+                    <div className="flex items-center px-2">
+                      <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
             {/* Saved key display */}
             {saved && (
               <div className="flex items-center gap-2 rounded-md bg-background/50 border border-border px-3 py-2">
-                <span className="font-mono text-sm text-foreground flex-1">
-                  {showKey[p.id] ? "الـ key مخفي — أدخل key جديد للتغيير" : saved.maskedKey}
-                </span>
+                <span className="font-mono text-sm text-foreground flex-1">{saved.maskedKey}</span>
                 <span className="text-xs text-muted-foreground">محفوظ ومشفّر</span>
               </div>
             )}
@@ -305,9 +367,31 @@ export function ApiKeysPanel() {
                   rel="noopener noreferrer"
                   className={cn("hover:underline", p.color)}
                 >
-                  احصل على key مجاني ↗
+                  احصل على key ↗
                 </a>
               </label>
+
+              {/* Model selector for new key */}
+              {!saved && (
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground">اختر المودل</label>
+                  <div className="relative">
+                    <select
+                      value={selectedModel}
+                      onChange={(e) => setSelectedModels((prev) => ({ ...prev, [p.id]: e.target.value }))}
+                      className="w-full appearance-none rounded-md border border-input bg-background px-3 py-2 pr-8 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                    >
+                      {models.map((m) => (
+                        <option key={m.id} value={m.id}>
+                          {m.name}{m.badge ? ` — ${m.badge}` : ""}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                  </div>
+                </div>
+              )}
+
               <div className="flex gap-2">
                 <div className="relative flex-1">
                   <input
@@ -350,7 +434,9 @@ export function ApiKeysPanel() {
 
                 {/* Save button */}
                 <button
-                  onClick={() => saveMutation.mutate({ provider: p.id, key: inputVal })}
+                  onClick={() =>
+                    saveMutation.mutate({ provider: p.id, key: inputVal, model: selectedModel })
+                  }
                   disabled={!inputVal || saveMutation.isPending}
                   className={cn(
                     "flex items-center gap-1.5 px-3 py-2 text-xs rounded-md font-medium transition-colors disabled:opacity-50",
