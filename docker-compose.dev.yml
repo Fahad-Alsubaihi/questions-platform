@@ -4,17 +4,31 @@ services:
   app:
     build:
       context: .
-      dockerfile: Dockerfile
-    restart: unless-stopped
+      dockerfile: Dockerfile.dev
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - /app/.next
     ports:
       - "3000:3000"
     environment:
       DATABASE_URL: postgresql://trivia:trivia@db:5432/trivia_db
       BETTER_AUTH_SECRET: dev-secret-change-in-production-min32
       BETTER_AUTH_URL: http://localhost:3000
-      OPENAI_API_KEY: ${OPENAI_API_KEY}
-      TAVILY_API_KEY: ${TAVILY_API_KEY}
       NEXT_PUBLIC_APP_URL: http://localhost:3000
+      TAVILY_API_KEY: ${TAVILY_API_KEY:-}
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      GOOGLE_GENERATIVE_AI_API_KEY: ${GOOGLE_GENERATIVE_AI_API_KEY:-}
+      NODE_ENV: development
+    command: >
+      sh -c "
+        echo '▶ Running migrations...' &&
+        npx drizzle-kit migrate &&
+        echo '▶ Creating admin user...' &&
+        npx tsx scripts/create-admin.ts &&
+        echo '▶ Starting dev server...' &&
+        npm run dev
+      "
     depends_on:
       db:
         condition: service_healthy

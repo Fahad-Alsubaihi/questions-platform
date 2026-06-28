@@ -1,17 +1,11 @@
 import { db, users, accounts } from "../lib/db";
 import { eq } from "drizzle-orm";
-import { scrypt } from "@noble/hashes/scrypt.js";
-import { bytesToHex, randomBytes } from "@noble/hashes/utils.js";
+import { scryptSync, randomBytes } from "crypto";
 
 function hashPassword(password: string): string {
-  const salt = bytesToHex(randomBytes(16));
-  const key = scrypt(password.normalize("NFKC"), salt, {
-    N: 16384,
-    r: 16,
-    p: 1,
-    dkLen: 64,
-  });
-  return `${salt}:${bytesToHex(key)}`;
+  const salt = randomBytes(16).toString("hex");
+  const key = scryptSync(password.normalize("NFKC"), salt, 64, { N: 4096, r: 8, p: 1 });
+  return `${salt}:${key.toString("hex")}`;
 }
 
 async function createAdmin() {
