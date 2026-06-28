@@ -44,5 +44,12 @@
       "tag": "0005_agent_configs_is_active_boolean",
       "breakpoints": true
     }
+    ,{
+      "idx": 6,
+      "version": "7",
+      "when": 1780918000000,
+      "tag": "0006_agent_configs_missing_columns",
+      "breakpoints": true
+    }
   ]
 }
