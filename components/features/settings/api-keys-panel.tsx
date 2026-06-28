@@ -31,7 +31,13 @@ const TAVILY = {
   bg: "bg-violet-500/10 border-violet-500/30",
 };
 
-async function fetchModels(provider: string, key: string): Promise<ModelOption[]> {
+async function fetchModelsById(id: string): Promise<ModelOption[]> {
+  const res = await fetch(`/api/keys/models?id=${id}`);
+  if (!res.ok) throw new Error((await res.json()).error);
+  return (await res.json()).data;
+}
+
+async function fetchModelsByKey(provider: string, key: string): Promise<ModelOption[]> {
   const res = await fetch("/api/keys/models", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -89,14 +95,14 @@ export function ApiKeysPanel() {
   const [testMsg, setTestMsg] = useState<Record<string, string>>({});
   const debounceRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
-  async function loadModels(provider: "gemini" | "groq", key: string) {
+  async function loadModelsByKey(provider: "gemini" | "groq", key: string) {
     if (key.length < 10) return;
     clearTimeout(debounceRef.current[provider]);
     debounceRef.current[provider] = setTimeout(async () => {
       setModelsLoading((p) => ({ ...p, [provider]: true }));
       setModelsError((p) => ({ ...p, [provider]: "" }));
       try {
-        const models = await fetchModels(provider, key);
+        const models = await fetchModelsByKey(provider, key);
         setDynamicModels((p) => ({ ...p, [provider]: models }));
         if (models.length > 0 && !selectedModels[provider]) {
           setSelectedModels((p) => ({ ...p, [provider]: models[0].id }));
@@ -109,6 +115,30 @@ export function ApiKeysPanel() {
       }
     }, 800);
   }
+
+  async function loadModelsById(id: string, provider: "gemini" | "groq") {
+    setModelsLoading((p) => ({ ...p, [provider]: true }));
+    setModelsError((p) => ({ ...p, [provider]: "" }));
+    try {
+      const models = await fetchModelsById(id);
+      setDynamicModels((p) => ({ ...p, [provider]: models }));
+    } catch (err) {
+      setModelsError((p) => ({ ...p, [provider]: (err as Error).message }));
+    } finally {
+      setModelsLoading((p) => ({ ...p, [provider]: false }));
+    }
+  }
+
+  useEffect(() => {
+    keys.forEach((k) => {
+      if (k.provider === "gemini" || k.provider === "groq") {
+        if (!dynamicModels[k.provider]) {
+          loadModelsById(k.id, k.provider);
+        }
+      }
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [keys]);
 
   const saveMutation = useMutation({
     mutationFn: async ({ provider, key, model }: { provider: string; key: string; model: string }) => {
@@ -353,8 +383,8 @@ export function ApiKeysPanel() {
                   <button
                     onClick={() => {
                       const key = inputs[p.id];
-                      if (key) loadModels(p.id, key);
-                      else setModelsError((prev) => ({ ...prev, [p.id]: "أدخل الـ key أدناه لجلب المودلات" }));
+                      if (key) loadModelsByKey(p.id, key);
+                      else if (saved) loadModelsById(saved.id, p.id);
                     }}
                     className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
                     title="تحديث قائمة المودلات"
@@ -460,7 +490,7 @@ export function ApiKeysPanel() {
                     value={inputVal}
                     onChange={(e) => {
                       setInputs((prev) => ({ ...prev, [p.id]: e.target.value }));
-                      loadModels(p.id, e.target.value);
+                      loadModelsByKey(p.id, e.target.value);
                     }}
                     placeholder={p.placeholder}
                     className="w-full rounded-md border border-input bg-background px-3 py-2 pr-10 text-sm font-mono text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
