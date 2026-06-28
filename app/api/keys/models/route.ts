@@ -39,6 +39,19 @@ async function getModelsForProvider(provider: string, key: string) {
       .map((m) => ({ id: m.id, name: m.id }));
   }
 
+  if (provider === "anthropic") {
+    const res = await fetch("https://api.anthropic.com/v1/models", {
+      headers: {
+        "x-api-key": key,
+        "anthropic-version": "2023-06-01",
+      },
+    });
+    if (!res.ok) throw new Error("فشل جلب المودلات من Anthropic");
+    const data = await res.json();
+    return (data.data as { id: string; display_name: string }[])
+      .map((m) => ({ id: m.id, name: m.display_name || m.id }));
+  }
+
   throw new Error("Invalid provider");
 }
 

@@ -66,6 +66,13 @@ async function getActiveProvider() {
     return { model: groq(modelId), provider: "groq" as const };
   }
 
+  if (row.provider === "anthropic") {
+    const { createAnthropic } = await import("@ai-sdk/anthropic");
+    const anthropic = createAnthropic({ apiKey: key });
+    const modelId = row.model || "claude-sonnet-4-6";
+    return { model: anthropic(modelId), provider: "groq" as const };
+  }
+
   throw new Error(`Unknown provider: ${row.provider}`);
 }
 

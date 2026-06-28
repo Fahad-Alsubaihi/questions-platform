@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "provider and key are required" }, { status: 400 });
     }
 
-    if (!["gemini", "groq", "tavily"].includes(provider)) {
+    if (!["gemini", "groq", "tavily", "anthropic"].includes(provider)) {
       return NextResponse.json({ error: "Invalid provider" }, { status: 400 });
     }
 
@@ -93,6 +93,7 @@ export async function PATCH(req: NextRequest) {
     // Deactivate all AI providers only (not tavily)
     await db.update(apiKeys).set({ isActive: false }).where(eq(apiKeys.provider, "gemini"));
     await db.update(apiKeys).set({ isActive: false }).where(eq(apiKeys.provider, "groq"));
+    await db.update(apiKeys).set({ isActive: false }).where(eq(apiKeys.provider, "anthropic"));
     // Activate selected and optionally update model
     const [updated] = await db
       .update(apiKeys)

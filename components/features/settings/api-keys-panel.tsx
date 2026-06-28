@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 
 interface MaskedKey {
   id: string;
-  provider: "gemini" | "groq";
+  provider: "gemini" | "groq" | "anthropic";
   label: string;
   model: string;
   maskedKey: string;
@@ -69,6 +69,17 @@ const PROVIDERS = [
     activeBg: "bg-orange-500/20 border-orange-500",
     placeholder: "gsk_...",
     docsUrl: "https://console.groq.com/keys",
+  },
+  {
+    id: "anthropic" as const,
+    name: "Claude (Anthropic)",
+    description: "الأدق في اللغة العربية",
+    badge: "Anthropic",
+    color: "text-amber-400",
+    bg: "bg-amber-500/10 border-amber-500/30",
+    activeBg: "bg-amber-500/20 border-amber-500",
+    placeholder: "sk-ant-...",
+    docsUrl: "https://console.anthropic.com/settings/keys",
   },
 ];
 
