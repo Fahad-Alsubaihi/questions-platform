@@ -87,6 +87,8 @@ export function ApiKeysPanel() {
 
   const [inputs, setInputs] = useState<Record<string, string>>({});
   const [selectedModels, setSelectedModels] = useState<Record<string, string>>({});
+  const [manualModelInputs, setManualModelInputs] = useState<Record<string, string>>({});
+  const [manualMode, setManualMode] = useState<Record<string, boolean>>({});
   const [dynamicModels, setDynamicModels] = useState<Record<string, ModelOption[]>>({});
   const [modelsLoading, setModelsLoading] = useState<Record<string, boolean>>({});
   const [modelsError, setModelsError] = useState<Record<string, string>>({});
@@ -319,6 +321,8 @@ export function ApiKeysPanel() {
         const currentModel = saved?.model || "";
         const selectedModel = selectedModels[p.id] ?? "";
         const currentModelName = fetchedModels.find((m) => m.id === currentModel)?.name ?? currentModel;
+        const isManual = manualMode[p.id] ?? false;
+        const manualVal = manualModelInputs[p.id] ?? currentModel;
 
         return (
           <div
@@ -380,22 +384,52 @@ export function ApiKeysPanel() {
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
                   <label className="text-xs font-medium text-muted-foreground">المودل المستخدم</label>
-                  <button
-                    onClick={() => {
-                      const key = inputs[p.id];
-                      if (key) loadModelsByKey(p.id, key);
-                      else if (saved) loadModelsById(saved.id, p.id);
-                    }}
-                    className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
-                    title="تحديث قائمة المودلات"
-                  >
-                    <RefreshCw className="h-3 w-3" />
-                    تحديث
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setManualMode((prev) => ({ ...prev, [p.id]: !isManual }))}
+                      className="text-xs text-muted-foreground hover:text-foreground transition-colors underline underline-offset-2"
+                    >
+                      {isManual ? "اختر من القائمة" : "اكتب يدوياً"}
+                    </button>
+                    {!isManual && (
+                      <button
+                        onClick={() => {
+                          const key = inputs[p.id];
+                          if (key) loadModelsByKey(p.id, key);
+                          else if (saved) loadModelsById(saved.id, p.id);
+                        }}
+                        className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        <RefreshCw className="h-3 w-3" />
+                        تحديث
+                      </button>
+                    )}
+                  </div>
                 </div>
                 <div className="flex gap-2">
                   <div className="relative flex-1">
-                    {isLoadingModels ? (
+                    {isManual ? (
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={manualVal}
+                          onChange={(e) => setManualModelInputs((prev) => ({ ...prev, [p.id]: e.target.value }))}
+                          placeholder="مثال: gemini-2.0-flash"
+                          className="flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm font-mono text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                        />
+                        <button
+                          onClick={() => {
+                            if (manualVal.trim()) {
+                              updateModelMutation.mutate({ id: saved.id, model: manualVal.trim() });
+                            }
+                          }}
+                          disabled={!manualVal.trim() || updateModelMutation.isPending}
+                          className="px-3 py-2 text-xs rounded-md bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50"
+                        >
+                          {updateModelMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "حفظ"}
+                        </button>
+                      </div>
+                    ) : isLoadingModels ? (
                       <div className="flex items-center gap-2 rounded-md border border-input bg-background px-3 py-2 text-sm text-muted-foreground">
                         <Loader2 className="h-4 w-4 animate-spin" />
                         جاري جلب المودلات...
@@ -416,19 +450,16 @@ export function ApiKeysPanel() {
                     ) : (
                       <div className="rounded-md border border-input bg-background px-3 py-2 text-sm text-muted-foreground">
                         {currentModelName || currentModel || "—"}
-                        <span className="text-xs mr-2 opacity-60">(أدخل الـ key وانقر تحديث)</span>
+                        {modelsFetchError && <span className="text-xs text-destructive mr-2">({modelsFetchError})</span>}
                       </div>
                     )}
                   </div>
-                  {updateModelMutation.isPending && (
+                  {!isManual && updateModelMutation.isPending && (
                     <div className="flex items-center px-2">
                       <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
                     </div>
                   )}
                 </div>
-                {modelsFetchError && (
-                  <p className="text-xs text-destructive">{modelsFetchError}</p>
-                )}
               </div>
             )}
 
@@ -455,14 +486,33 @@ export function ApiKeysPanel() {
                 </a>
               </label>
 
-              {/* Model selector for new key — populated dynamically */}
+              {/* Model selector for new key — populated dynamically or manual */}
               {!saved && (
                 <div className="space-y-1">
-                  <label className="text-xs text-muted-foreground">
-                    اختر المودل
-                    {isLoadingModels && <Loader2 className="inline h-3 w-3 animate-spin mr-1" />}
-                  </label>
-                  {fetchedModels.length > 0 ? (
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs text-muted-foreground">
+                      المودل
+                      {isLoadingModels && <Loader2 className="inline h-3 w-3 animate-spin mr-1" />}
+                    </label>
+                    <button
+                      onClick={() => setManualMode((prev) => ({ ...prev, [p.id]: !isManual }))}
+                      className="text-xs text-muted-foreground hover:text-foreground transition-colors underline underline-offset-2"
+                    >
+                      {isManual ? "اختر من القائمة" : "اكتب يدوياً"}
+                    </button>
+                  </div>
+                  {isManual ? (
+                    <input
+                      type="text"
+                      value={manualModelInputs[p.id] ?? ""}
+                      onChange={(e) => {
+                        setManualModelInputs((prev) => ({ ...prev, [p.id]: e.target.value }));
+                        setSelectedModels((prev) => ({ ...prev, [p.id]: e.target.value }));
+                      }}
+                      placeholder="مثال: gemini-2.0-flash"
+                      className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-mono text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                    />
+                  ) : fetchedModels.length > 0 ? (
                     <div className="relative">
                       <select
                         value={selectedModel}
@@ -477,7 +527,7 @@ export function ApiKeysPanel() {
                     </div>
                   ) : (
                     <div className="rounded-md border border-dashed border-border px-3 py-2 text-xs text-muted-foreground">
-                      {isLoadingModels ? "جاري جلب المودلات..." : modelsFetchError ? modelsFetchError : "أدخل الـ key لجلب المودلات تلقائياً"}
+                      {isLoadingModels ? "جاري جلب المودلات..." : "أدخل الـ key لجلب المودلات — أو اكتب يدوياً"}
                     </div>
                   )}
                 </div>
